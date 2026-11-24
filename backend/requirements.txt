@@ -1,0 +1,10 @@
+# Web 框架与服务器（只负责路由、请求处理、会话）
+fastapi==0.165.0
+uvicorn[standard]==0.54.0
+itsdangerous==2.2.0
+# PostgreSQL 驱动：只用于建立连接并执行手写 SQL（不使用任何 ORM）
+psycopg[binary]==3.3.9
+psycopg-pool==3.3.3
+# 测试
+httpx==0.28.1
+pytest==9.2.0

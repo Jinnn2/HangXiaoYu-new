@@ -1,0 +1,14 @@
+# PostgreSQL 临时实例、凭据、日志和本地配置
+.pgtest*/
+__pycache__/
+*.pyc
+.env
+.env.*
+!.env.example
+*.log
+pgpass.conf
+.pgpass
+node_modules/
+.venv/
+.DS_Store
+Thumbs.db

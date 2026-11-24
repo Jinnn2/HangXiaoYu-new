@@ -1,0 +1,68 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", "PingFang SC", "HarmonyOS Sans SC", "Microsoft YaHei", "Noto Sans SC", system-ui, sans-serif;
+  --color-brand-50: #eff8ff;
+  --color-brand-100: #dbeefe;
+  --color-brand-200: #bfe2fe;
+  --color-brand-300: #93d0fd;
+  --color-brand-400: #60b4fa;
+  --color-brand-500: #3b93f6;
+  --color-brand-600: #2574eb;
+  --color-brand-700: #1d5ed8;
+  --color-brand-800: #1e4daf;
+  --color-brand-900: #1e438a;
+  --shadow-card: 0 1px 2px rgb(15 23 42 / 0.04), 0 4px 16px -4px rgb(15 23 42 / 0.08);
+  --shadow-lift: 0 2px 4px rgb(15 23 42 / 0.04), 0 16px 32px -8px rgb(15 23 42 / 0.16);
+}
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+  }
+  body {
+    @apply bg-slate-50 text-slate-800;
+  }
+  input, select, textarea {
+    @apply outline-none;
+  }
+}
+
+@utility card {
+  @apply rounded-2xl border border-slate-200/70 bg-white shadow-card;
+}
+@utility input {
+  @apply w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm transition
+    placeholder:text-slate-400 focus:border-brand-400 focus:ring-4 focus:ring-brand-100;
+}
+@utility label {
+  @apply mb-1.5 block text-sm font-medium text-slate-600;
+}
+@utility btn {
+  @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold
+    transition active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50;
+}
+@utility btn-primary {
+  @apply btn bg-gradient-to-r from-brand-500 to-indigo-500 text-white shadow-sm shadow-brand-500/30
+    hover:from-brand-600 hover:to-indigo-600;
+}
+@utility btn-secondary {
+  @apply btn border border-slate-200 bg-white text-slate-700 hover:bg-slate-50;
+}
+@utility btn-danger {
+  @apply btn border border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100;
+}
+@utility btn-ghost {
+  @apply btn text-slate-600 hover:bg-slate-100;
+}
+@utility chip {
+  @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium;
+}
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+.animate-fade-up {
+  animation: fade-up 0.35s ease-out both;
+}

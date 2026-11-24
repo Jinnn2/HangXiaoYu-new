@@ -49,7 +49,12 @@ BEGIN
         (c, d, cat_cloth,   '优衣库羽绒服 L 码',           4::SMALLINT, 499, 260, 12),
         (a, b, cat_fun,     '尤克里里 23 寸',             4::SMALLINT, 299, 150, 15),
         (d, a, cat_digital, '机械键盘腕托',               5::SMALLINT, 59,  40,  17),
-        (b, c, cat_book,    'C Primer Plus 第六版',       3::SMALLINT, 89,  35,  19)
+        (b, c, cat_book,    'C Primer Plus 第六版',       3::SMALLINT, 89,  35,  19),
+        -- 同款成交：让估价能按"同款"比价
+        (b, c, cat_digital, '小米手环 8',                 4::SMALLINT, 249, 130, 5),
+        (d, b, cat_digital, '小米手环 8 NFC 版',           5::SMALLINT, 299, 165, 14),
+        (a, c, cat_book,    '高等数学（同济第八版）下册',    4::SMALLINT, 52,  22,  3),
+        (c, b, cat_book,    '高等数学 同济第七版 上册',     3::SMALLINT, 47,  15,  18)
     ) AS t(seller, buyer, cat, title, cond, orig, price, ago)
     LOOP
         l := hxy.create_listing(r.seller, r.cat, r.title, '演示历史成交商品', r.cond, r.orig, r.price);
@@ -81,6 +86,10 @@ BEGIN
         '骑了一年，刚换过刹车片，送车锁。', 3::SMALLINT, 1599, 680);
     PERFORM hxy.create_listing(e, cat_sport, '斯伯丁 7 号篮球',
         '室外球，气很足。', 3::SMALLINT, 199, 80);
+    PERFORM hxy.create_listing(e, cat_digital, '小米手环 8 黑色',
+        '戴了两个月，表带有轻微使用痕迹，充电器齐全。', 4::SMALLINT, 249, 145);
+    PERFORM hxy.create_listing(b, cat_book, '高等数学（同济第八版）上下册',
+        '两本一起出，上册有笔记，下册几乎全新。', 3::SMALLINT, 104, 40);
     PERFORM hxy.create_listing(a, cat_cloth, '北面冲锋衣 M 码',
         '只穿过两次，尺码不合适。', 5::SMALLINT, 1299, 780);
     PERFORM hxy.create_listing(c, cat_fun, '雅马哈 F310 民谣吉他',

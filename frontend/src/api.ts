@@ -115,15 +115,52 @@ export interface LedgerRow {
   listing_title: string | null;
 }
 
+export type EstimateBasis = "SAME_ITEM" | "CATEGORY" | "DEFAULT";
+
 export interface Estimate {
   suggested_price_points: number;
   low_price_points: number;
   high_price_points: number;
   sample_count: number;
   market_ratio: number | null;
+  basis?: EstimateBasis;
+}
+
+export interface ValuationSample {
+  order_id: number;
+  title: string;
+  condition_level: number;
+  original_price_points: number | null;
+  price_points: number;
+  completed_at: string;
+  similarity: number;
+  same_item: boolean;
+  adjusted_price: number;
+}
+
+export interface SameItemListing {
+  listing_id: number;
+  title: string;
+  condition_level: number;
+  current_price_points: number;
+  created_at: string;
+  similarity: number;
+}
+
+// 估价接口的完整返回：估价结果 + 参考成交 + 同款在售
+export interface MarketEstimate extends Estimate {
+  basis: EstimateBasis;
+  same_item_count: number;
+  same_item_median: number | null;
+  listing_count: number;
+  listing_min: number | null;
+  listing_median: number | null;
+  samples: ValuationSample[];
+  listings: SameItemListing[];
 }
 
 export interface Valuation extends Estimate {
+  basis: EstimateBasis;
   valuation_id: number;
   category_id: number;
   category_name: string;

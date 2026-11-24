@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router";
-import { History, Sparkles, Trash2 } from "lucide-react";
+import { History, Sparkles, Store, Trash2 } from "lucide-react";
 import { del, get, post, type Category, type Valuation } from "../api";
 import { useAuth } from "../auth";
-import { CONDITION_LABEL, Empty, Points, SectionTitle, fmtTime, useAction } from "../ui";
+import { CONDITION_LABEL, Empty, Points, SectionTitle, fmtTime, timeAgo, useAction } from "../ui";
+import { PriceTimeline } from "../charts";
 import { ConditionPicker, EstimatePanel, useEstimate } from "./Sell";
 
 interface MarketRow { category_id: number; name: string; deals_180d: number; avg_deal_points: number | null; avg_deal_ratio: number | null; on_sale_count: number }
@@ -18,7 +19,7 @@ export default function ValuationPage() {
   const [category, setCategory] = useState(params.get("category") ?? "");
   const [condition, setCondition] = useState(Number(params.get("condition") ?? 4));
   const [original, setOriginal] = useState(params.get("original") ?? "");
-  const { est, loading } = useEstimate(category, condition, original);
+  const { est, loading } = useEstimate(category, condition, original, name);
   const { busy, run } = useAction();
 
   useEffect(() => {
@@ -62,8 +63,8 @@ export default function ValuationPage() {
           </div>
           <div className="rounded-xl bg-slate-50 p-4 text-xs leading-relaxed text-slate-500">
             <p className="mb-1 font-semibold text-slate-600">估价方法（数据库函数 hxy.estimate_price）</p>
-            取同分类近 180 天已完成订单的"成交价 ÷ 原价"，按成色折算后取中位数；样本越多越相信市场：
-            权重 = 样本数 ÷ (样本数 + 5)，其余部分使用成色经验折旧率（九成新 70%、八成新 55%…）。
+            像饰品交易市场一样先看<b>同款</b>：名称相似的近 180 天成交，按成色折算后取中位数，权重 = 同款笔数 ÷ (笔数 + 2)；
+            没有同款时看<b>同分类</b>的"成交价 ÷ 原价"，权重 = 笔数 ÷ (笔数 + 5)；其余部分用成色经验折旧率（九成新 70%、八成新 55%…）。
           </div>
           <div className="flex justify-end">
             {me ? (
@@ -92,6 +93,66 @@ export default function ValuationPage() {
         </div>
       </div>
 
+      {est && (
+        <div className="grid gap-6 lg:grid-cols-[1.6fr_1fr]">
+          <div className="card p-5">
+            <h2 className="font-semibold text-slate-900">近期成交记录</h2>
+            <p className="mb-4 text-xs text-slate-400">同分类近 180 天的真实成交；价格已按成色折算到「{CONDITION_LABEL[condition]}」，便于比较</p>
+            {est.samples.length === 0 ? <Empty title="该分类近 180 天还没有成交" /> : (
+              <>
+                <PriceTimeline
+                  points={est.samples.map((x) => ({ t: x.completed_at, value: Math.round(x.adjusted_price), highlight: x.same_item, label: x.title }))}
+                  reference={{ value: est.suggested_price_points, label: "建议价" }} />
+                <div className="mt-4 max-h-72 overflow-auto rounded-xl border border-slate-100">
+                  <table className="w-full text-sm">
+                    <thead className="sticky top-0 bg-slate-50 text-left text-xs text-slate-500">
+                      <tr><th className="px-3 py-2 font-medium">商品</th><th className="px-3 py-2 font-medium">成色</th><th className="px-3 py-2 text-right font-medium">成交价</th><th className="px-3 py-2 text-right font-medium">折算价</th><th className="px-3 py-2 text-right font-medium">时间</th></tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {est.samples.map((x) => (
+                        <tr key={x.order_id} className={x.same_item ? "bg-brand-50/40" : ""}>
+                          <td className="max-w-[14rem] px-3 py-2">
+                            <span className="flex items-center gap-1.5">
+                              {x.same_item && <span className="chip shrink-0 bg-brand-100 text-brand-700">同款</span>}
+                              <span className="truncate text-slate-700">{x.title}</span>
+                            </span>
+                          </td>
+                          <td className="whitespace-nowrap px-3 py-2 text-slate-500">{CONDITION_LABEL[x.condition_level]}</td>
+                          <td className="px-3 py-2 text-right tabular-nums text-slate-700">{x.price_points}</td>
+                          <td className="px-3 py-2 text-right font-semibold tabular-nums text-slate-800">{Math.round(x.adjusted_price)}</td>
+                          <td className="whitespace-nowrap px-3 py-2 text-right text-xs text-slate-400">{timeAgo(x.completed_at)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
+          </div>
+          <div className="card h-fit p-5">
+            <h2 className="flex items-center gap-2 font-semibold text-slate-900"><Store className="size-4 text-slate-400" />同款在售</h2>
+            <p className="mb-3 text-xs text-slate-400">名称相似的在售商品，按价格从低到高</p>
+            {est.listings.length === 0 ? (
+              <p className="py-6 text-center text-sm text-slate-500">{name.trim() ? "暂无同款在售" : "填写物品名称后显示同款在售"}</p>
+            ) : (
+              <ul className="-mx-2 divide-y divide-slate-100">
+                {est.listings.map((l) => (
+                  <li key={l.listing_id}>
+                    <Link to={`/listings/${l.listing_id}`} className="flex items-center justify-between gap-3 rounded-lg px-2 py-2.5 hover:bg-slate-50">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-slate-700">{l.title}</p>
+                        <p className="text-xs text-slate-400">{CONDITION_LABEL[l.condition_level]} · {timeAgo(l.created_at)}发布</p>
+                      </div>
+                      <Points value={l.current_price_points} size="sm" />
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      )}
+
       {me && (
         <div>
           <h2 className="mb-3 flex items-center gap-2 text-lg font-semibold text-slate-900"><History className="size-5 text-slate-400" />我的估价记录</h2>
@@ -103,6 +164,7 @@ export default function ValuationPage() {
                     <div>
                       <p className="font-semibold text-slate-800">{v.item_name}</p>
                       <p className="text-xs text-slate-500">{v.category_name} · {CONDITION_LABEL[v.condition_level]} · 原价 {v.original_price_points}</p>
+                      <span className="chip mt-1.5 bg-slate-100 text-slate-600">{v.basis === "SAME_ITEM" ? `同款 ${v.sample_count} 笔` : v.basis === "CATEGORY" ? `同分类 ${v.sample_count} 笔` : "成色经验"}</span>
                     </div>
                     <button className="rounded-lg p-1.5 text-slate-300 transition hover:bg-rose-50 hover:text-rose-500" title="删除"
                       onClick={() => run("del" + v.valuation_id, async () => { await del(`/valuations/${v.valuation_id}`); setHistory((h) => h.filter((x) => x.valuation_id !== v.valuation_id)); }, "已删除")}>

@@ -301,3 +301,70 @@ export function RankBars({ rows, color = SERIES[0], unit = "" }: { rows: { label
     </div>
   );
 }
+
+// ------------------------------------------------------------------ 成交价走势（散点 + 建议价参考线）
+export function PriceTimeline({ points, reference, height = 220 }: {
+  points: { t: string; value: number; highlight: boolean; label: string }[];
+  reference?: { value: number; label: string };
+  height?: number;
+}) {
+  const [ref, w] = useWidth<HTMLDivElement>();
+  const [hover, setHover] = useState<number | null>(null);
+  const P = { l: 44, r: 16, t: 16, b: 26 };
+  const times = points.map((p) => new Date(p.t).getTime());
+  const now = Date.now();
+  const t0 = Math.min(now - 30 * 86400000, ...times), t1 = now;
+  const max = niceMax(Math.max(reference?.value ?? 0, ...points.map((p) => p.value)) * 1.05);
+  const iw = Math.max(0, w - P.l - P.r), ih = height - P.t - P.b;
+  const x = (t: number) => P.l + ((t - t0) / (t1 - t0)) * iw;
+  const y = (v: number) => P.t + ih - (v / max) * ih;
+  const ticks = [0, 0.25, 0.5, 0.75, 1].map((f) => t0 + f * (t1 - t0));
+  const fmt = (t: number) => { const d = new Date(t); return `${d.getMonth() + 1}-${String(d.getDate()).padStart(2, "0")}`; };
+  // 先画非同款，再画同款，让重点在上层
+  const order = points.map((_, i) => i).sort((a, b) => Number(points[a].highlight) - Number(points[b].highlight));
+  const onMove = (e: React.MouseEvent) => {
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+    let best: number | null = null, bd = 24 * 24;
+    points.forEach((p, i) => {
+      const d = (x(times[i]) - mx) ** 2 + (y(p.value) - my) ** 2;
+      if (d < bd) { bd = d; best = i; }
+    });
+    setHover(best);
+  };
+  return (
+    <div>
+      <div className="mb-3"><Legend items={[{ label: "同款成交", color: SERIES[0] }, { label: "同分类其他成交", color: DEEMPH }]} /></div>
+      <div ref={ref} className="relative" style={{ height }} onMouseMove={onMove} onMouseLeave={() => setHover(null)}>
+        {w > 0 && (
+          <svg width={w} height={height} role="img" aria-label="近期成交价（已按成色折算）">
+            {[0, 0.5, 1].map((f) => (
+              <g key={f}>
+                <line x1={P.l} x2={w - P.r} y1={y(max * f)} y2={y(max * f)} stroke={GRID} strokeWidth={1} />
+                <text x={P.l - 6} y={y(max * f)} dy="0.32em" textAnchor="end" fontSize={11} fill={INK_2}>{compact(max * f)}</text>
+              </g>
+            ))}
+            {ticks.map((t) => <text key={t} x={x(t)} y={height - 6} textAnchor="middle" fontSize={11} fill={INK_2}>{fmt(t)}</text>)}
+            {reference && (
+              <g>
+                <line x1={P.l} x2={w - P.r} y1={y(reference.value)} y2={y(reference.value)} stroke="#0f172a" strokeWidth={1} />
+                <text x={w - P.r} y={y(reference.value) - 6} textAnchor="end" fontSize={11} fontWeight={600} fill="#0f172a">{reference.label} {reference.value}</text>
+              </g>
+            )}
+            {order.map((i) => (
+              <circle key={i} cx={x(times[i])} cy={y(points[i].value)} r={hover === i ? 6 : 4.5}
+                fill={points[i].highlight ? SERIES[0] : DEEMPH} stroke={SURFACE} strokeWidth={2} />
+            ))}
+          </svg>
+        )}
+        {hover !== null && points[hover] && (
+          <Tooltip x={x(times[hover])} y={y(points[hover].value)} width={w}>
+            <div className="text-white/70">{fmt(times[hover])} · {points[hover].highlight ? "同款" : "同分类"}</div>
+            <div className="font-semibold">{points[hover].label}</div>
+            <div className="flex items-center gap-1.5"><Swatch color={points[hover].highlight ? SERIES[0] : DEEMPH} />折算价 <b>{points[hover].value}</b></div>
+          </Tooltip>
+        )}
+      </div>
+    </div>
+  );
+}

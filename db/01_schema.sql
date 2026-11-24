@@ -85,13 +85,16 @@ CREATE TABLE hxy.valuation (
     low_price_points       BIGINT      NOT NULL,
     high_price_points      BIGINT      NOT NULL,
     sample_count           INTEGER     NOT NULL,
+    basis                  VARCHAR(10) NOT NULL DEFAULT 'CATEGORY',
     created_at             TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
     CONSTRAINT valuation_condition_check CHECK (condition_level BETWEEN 1 AND 5),
     CONSTRAINT valuation_original_check CHECK (original_price_points > 0),
     CONSTRAINT valuation_range_check CHECK (
         0 < low_price_points AND low_price_points <= suggested_price_points
         AND suggested_price_points <= high_price_points),
-    CONSTRAINT valuation_sample_check CHECK (sample_count >= 0)
+    CONSTRAINT valuation_sample_check CHECK (sample_count >= 0),
+    -- 估价依据：SAME_ITEM 同款成交 / CATEGORY 同分类成交 / DEFAULT 成色经验值
+    CONSTRAINT valuation_basis_check CHECK (basis IN ('SAME_ITEM', 'CATEGORY', 'DEFAULT'))
 );
 
 -- ---------------------------------------------------------------- 积分账户

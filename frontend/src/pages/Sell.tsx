@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import { ArrowDownToLine, ArrowUpFromLine, ImageIcon, Sparkles, Trash2, Wand2 } from "lucide-react";
-import { del, get, post, put, type Category, type Estimate, type ListingDetail } from "../api";
+import { del, get, post, put, type Category, type EstimateBasis, type ListingDetail, type MarketEstimate } from "../api";
 import { CONDITION_LABEL, Cover, ListingStatusBadge, Modal, PageLoading, Points, SectionTitle, useAction } from "../ui";
 
 interface Form {
@@ -16,19 +16,20 @@ interface Form {
 
 const EMPTY: Form = { category_id: "", title: "", description: "", condition_level: 4, original_price_points: "", current_price_points: "", image_url: "" };
 
-export function useEstimate(categoryId: string, condition: number, original: string) {
-  const [est, setEst] = useState<Estimate | null>(null);
+export function useEstimate(categoryId: string, condition: number, original: string, name = "") {
+  const [est, setEst] = useState<MarketEstimate | null>(null);
   const [loading, setLoading] = useState(false);
   useEffect(() => {
     const price = Number(original);
     if (!categoryId || !price || price <= 0) { setEst(null); return; }
     setLoading(true);
     const t = setTimeout(() => {
-      post<Estimate>("/valuations/estimate", { category_id: Number(categoryId), condition_level: condition, original_price: price })
-        .then(setEst).catch(() => setEst(null)).finally(() => setLoading(false));
+      post<MarketEstimate>("/valuations/estimate", {
+        category_id: Number(categoryId), condition_level: condition, original_price: price, item_name: name.trim() || null,
+      }).then(setEst).catch(() => setEst(null)).finally(() => setLoading(false));
     }, 350);
     return () => clearTimeout(t);
-  }, [categoryId, condition, original]);
+  }, [categoryId, condition, original, name]);
   return { est, loading };
 }
 
@@ -44,18 +45,26 @@ export function ConditionPicker({ value, onChange }: { value: number; onChange: 
   );
 }
 
-export function EstimatePanel({ est, loading, onUse }: { est: Estimate | null; loading: boolean; onUse?: (p: number) => void }) {
+const BASIS: Record<EstimateBasis, { text: (e: MarketEstimate) => string; cls: string }> = {
+  SAME_ITEM: { text: (e) => `按 ${e.same_item_count} 笔同款成交估价`, cls: "bg-emerald-50 text-emerald-700" },
+  CATEGORY: { text: (e) => `同款成交不足，参考同分类 ${e.sample_count} 笔成交`, cls: "bg-sky-50 text-sky-700" },
+  DEFAULT: { text: () => "暂无成交，按成色折旧经验估算", cls: "bg-slate-100 text-slate-600" },
+};
+
+export function EstimatePanel({ est, loading, onUse, myPrice }: { est: MarketEstimate | null; loading: boolean; onUse?: (p: number) => void; myPrice?: number }) {
+  const diff = myPrice && est?.listing_min ? Math.round(((myPrice - est.listing_min) / est.listing_min) * 100) : null;
   return (
     <div className="card overflow-hidden">
       <div className="bg-gradient-to-br from-brand-500 via-indigo-500 to-violet-500 px-5 py-4 text-white">
         <p className="flex items-center gap-1.5 text-sm font-semibold"><Sparkles className="size-4" />智能估价</p>
-        <p className="mt-0.5 text-xs text-white/75">依据同分类近 180 天真实成交价与成色计算</p>
+        <p className="mt-0.5 text-xs text-white/75">先比同款成交，再看同分类，最后按成色经验估算</p>
       </div>
       <div className="p-5">
         {!est ? (
-          <p className="text-sm text-slate-500">{loading ? "计算中…" : "选择分类、成色并填写原价后自动给出建议价。"}</p>
+          <p className="text-sm text-slate-500">{loading ? "计算中…" : "填写名称、分类、成色和原价后自动给出建议价。"}</p>
         ) : (
           <div className={loading ? "opacity-50" : ""}>
+            <span className={`chip mb-2 ${BASIS[est.basis].cls}`}>{BASIS[est.basis].text(est)}</span>
             <p className="text-xs text-slate-500">建议售价</p>
             <Points value={est.suggested_price_points} size="lg" />
             <div className="mt-3">
@@ -65,11 +74,21 @@ export function EstimatePanel({ est, loading, onUse }: { est: Estimate | null; l
                   style={{ left: `${est.high_price_points === est.low_price_points ? 50 : ((est.suggested_price_points - est.low_price_points) / (est.high_price_points - est.low_price_points)) * 100}%` }} />
               </div>
             </div>
-            <p className="mt-3 text-xs leading-relaxed text-slate-500">
-              {est.sample_count > 0
-                ? <>参考了 {est.sample_count} 笔同类成交，市场平均成交价约为原价的 {Math.round((est.market_ratio ?? 0) * 100)}%。</>
-                : <>该分类暂无成交样本，按成色折旧经验值估算。</>}
-            </p>
+            <dl className="mt-4 grid grid-cols-2 gap-2 text-xs">
+              <div className="rounded-lg bg-slate-50 p-2.5">
+                <dt className="text-slate-500">同款成交中位价</dt>
+                <dd className="mt-0.5 text-base font-semibold text-slate-800">{est.same_item_median ?? "—"}</dd>
+              </div>
+              <div className="rounded-lg bg-slate-50 p-2.5">
+                <dt className="text-slate-500">同款在售最低价</dt>
+                <dd className="mt-0.5 text-base font-semibold text-slate-800">{est.listing_min ?? "—"}{est.listing_count > 0 && <span className="ml-1 text-xs font-normal text-slate-400">共 {est.listing_count} 件</span>}</dd>
+              </div>
+            </dl>
+            {diff !== null && (
+              <p className={`mt-3 rounded-lg p-2.5 text-xs ${diff > 10 ? "bg-amber-50 text-amber-800" : "bg-emerald-50 text-emerald-800"}`}>
+                你的定价比同款在售最低价{diff >= 0 ? `高 ${diff}%` : `低 ${-diff}%`}{diff > 10 ? "，可能不好卖" : "，有竞争力"}。
+              </p>
+            )}
             {onUse && <button type="button" className="btn-secondary mt-4 w-full" onClick={() => onUse(est.suggested_price_points)}><Wand2 className="size-4" />使用建议价</button>}
           </div>
         )}
@@ -87,7 +106,7 @@ export default function SellPage() {
   const [newPrice, setNewPrice] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
   const { busy, run } = useAction();
-  const { est, loading } = useEstimate(form.category_id, form.condition_level, form.original_price_points);
+  const { est, loading } = useEstimate(form.category_id, form.condition_level, form.original_price_points, form.title);
 
   useEffect(() => { get<Category[]>("/categories").then(setCategories); }, []);
   useEffect(() => {
@@ -183,7 +202,7 @@ export default function SellPage() {
               <Cover title={form.title} category={categories.find((c) => String(c.category_id) === form.category_id)?.name ?? ""} imageUrl={form.image_url || null} className="aspect-[16/9] w-full" />
             </div>
           )}
-          <EstimatePanel est={est} loading={loading} onUse={listing ? (p) => setNewPrice(String(p)) : (p) => set("current_price_points", String(p))} />
+          <EstimatePanel est={est} loading={loading} myPrice={Number(listing ? newPrice || listing.current_price_points : form.current_price_points) || undefined} onUse={listing ? (p) => setNewPrice(String(p)) : (p) => set("current_price_points", String(p))} />
 
           {listing && (
             <div className="card space-y-4 p-5">

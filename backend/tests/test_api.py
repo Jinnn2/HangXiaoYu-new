@@ -121,3 +121,13 @@ def test_dashboards(lin, admin):
     assert len(a["daily"]) == 14 and sum(x["completed_orders"] for x in a["daily"]) >= 1
     assert a["top_sellers"] and a["categories"]
     assert lin.get("/api/admin/dashboard").status_code == 403
+
+
+def test_same_item_valuation(anon):
+    cats = anon.get("/api/categories").json()
+    digital = next(c for c in cats if c["name"] == "数码电子")["category_id"]
+    r = anon.post("/api/valuations/estimate", json={"category_id": digital, "condition_level": 4,
+                                                   "original_price": 249, "item_name": "小米手环 8"}).json()
+    assert r["basis"] == "SAME_ITEM" and r["same_item_count"] == 2
+    assert sum(1 for x in r["samples"] if x["same_item"]) == 2 and r["samples"][0]["same_item"]
+    assert r["listing_count"] >= 1 and r["listings"][0]["current_price_points"] == r["listing_min"]

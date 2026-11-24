@@ -12,3 +12,7 @@ node_modules/
 .venv/
 .DS_Store
 Thumbs.db
+# 前端 / 后端构建产物
+frontend/dist/
+.pytest_cache/
+backend/.env

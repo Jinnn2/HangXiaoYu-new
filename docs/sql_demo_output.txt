@@ -1,0 +1,216 @@
+SELECT hxy.register_user('23370099', '演示同学', 'demo123') AS new_user_id 
+SELECT hxy.authenticate('23370099', 'demo123') AS login_ok, hxy.authenticate('23370099', 'wrong') AS login_fail;
+ login_ok | login_fail 
+----------+------------
+        7 |           
+
+UPDATE hxy.app_user SET display_name = '演示同学A' WHERE user_id = 7;
+UPDATE 1
+SELECT user_id, student_no, display_name, spendable_points, buyer_reward_points, seller_reputation
+  FROM hxy.v_user_account_summary WHERE user_id = 7;
+ user_id | student_no | display_name | spendable_points | buyer_reward_points | seller_reputation 
+---------+------------+--------------+------------------+---------------------+-------------------
+       7 | 23370099   | 演示同学A    |              500 |                   0 |                80
+
+SELECT event_type, delta_points FROM hxy.v_account_statement WHERE user_id = 7;
+ event_type | delta_points 
+------------+--------------
+ GRANT      |          500
+
+SELECT category_id AS digital FROM hxy.category WHERE name = '数码电子' 
+SELECT hxy.create_listing(7, 1, '罗技 G304 无线鼠标', '电池仓有轻微划痕', 4::SMALLINT, 249, 120) AS lid 
+SELECT listing_id, title, category_name, condition_level, current_price_points, status, seller_name
+  FROM hxy.v_listing_card
+ WHERE status = 'ON_SALE' AND title ILIKE '%' || '鼠标' || '%'
+ ORDER BY created_at DESC;
+ listing_id |       title        | category_name | condition_level | current_price_points | status  | seller_name 
+------------+--------------------+---------------+-----------------+----------------------+---------+-------------
+         23 | 罗技 G304 无线鼠标 | 数码电子      |               4 |                  120 | ON_SALE | 演示同学A
+
+SELECT hxy.update_listing_info(23, 7, 1, '罗技 G304 无线鼠标（送鼠标垫）',
+                               '电池仓有轻微划痕', 4::SMALLINT, 249, NULL);
+ update_listing_info 
+---------------------
+ 
+
+SELECT hxy.reprice_listing(23, 7, 110) AS new_history_id;
+ new_history_id 
+----------------
+             24
+
+SELECT history_id, price_points, change_type, changed_at FROM hxy.price_history WHERE listing_id = 23 ORDER BY history_id;
+ history_id | price_points | change_type |          changed_at           
+------------+--------------+-------------+-------------------------------
+         23 |          120 | INITIAL     | 2026-11-24 12:43:44.208933+00
+         24 |          110 | REPRICE     | 2026-11-24 12:43:44.215314+00
+
+SELECT hxy.create_listing(7, 1, '临时发布的测试商品', '', 3::SMALLINT, NULL, 10) AS tmp_lid 
+INSERT INTO hxy.favorite (user_id, listing_id) VALUES (2, 24);
+INSERT 0 1
+SELECT hxy.delete_listing(24, 7);
+ delete_listing 
+----------------
+ 
+
+SELECT (SELECT COUNT(*) FROM hxy.listing WHERE listing_id = 24) AS listing_left,
+       (SELECT COUNT(*) FROM hxy.price_history WHERE listing_id = 24) AS history_left,
+       (SELECT COUNT(*) FROM hxy.favorite WHERE listing_id = 24) AS favorite_left;
+ listing_left | history_left | favorite_left 
+--------------+--------------+---------------
+            0 |            0 |             0
+
+INSERT INTO hxy.favorite (user_id, listing_id) VALUES (2, 23) ON CONFLICT DO NOTHING;
+INSERT 0 1
+SELECT f.user_id, c.title, f.created_at FROM hxy.favorite f JOIN hxy.v_listing_card c USING (listing_id) WHERE f.user_id = 2;
+ user_id |             title              |          created_at           
+---------+--------------------------------+-------------------------------
+       2 | 雅马哈 F310 民谣吉他           | 2026-11-24 12:43:16.460987+00
+       2 | Kindle Paperwhite 4            | 2026-11-24 12:43:16.460753+00
+       2 | 罗技 G304 无线鼠标（送鼠标垫） | 2026-11-24 12:43:44.22022+00
+
+DELETE FROM hxy.favorite WHERE user_id = 2 AND listing_id = 23;
+DELETE 1
+SELECT * FROM hxy.estimate_price(1, 4::SMALLINT, 249);
+ suggested_price_points | low_price_points | high_price_points | sample_count | market_ratio 
+------------------------+------------------+-------------------+--------------+--------------
+                    166 |              149 |               182 |            3 |       0.6076
+
+SELECT hxy.create_valuation(7, 1, '罗技 G304', 4::SMALLINT, 249) AS vid 
+SELECT valuation_id, item_name, suggested_price_points, low_price_points, high_price_points, sample_count
+  FROM hxy.valuation WHERE requester_id = 7;
+ valuation_id | item_name | suggested_price_points | low_price_points | high_price_points | sample_count 
+--------------+-----------+------------------------+------------------+-------------------+--------------
+            3 | 罗技 G304 |                    166 |              149 |               182 |            3
+
+DELETE FROM hxy.valuation WHERE valuation_id = 3 AND requester_id = 7;
+DELETE 1
+SELECT * FROM hxy.v_category_market ORDER BY category_id;
+ category_id |   name   | deals_180d | avg_deal_points | avg_deal_ratio | on_sale_count 
+-------------+----------+------------+-----------------+----------------+---------------
+           1 | 数码电子 |          3 |              67 |          0.615 |             3
+           2 | 教材书籍 |          3 |              20 |          0.374 |             2
+           3 | 生活用品 |          2 |              38 |          0.489 |             1
+           4 | 运动户外 |          2 |              90 |          0.487 |             2
+           5 | 服饰鞋包 |          0 |                 |                |             1
+           6 | 乐器文娱 |          0 |                 |                |             1
+           7 | 其他     |          0 |                 |                |             0
+
+SELECT hxy.place_order(23, 2, 110) AS oid 
+SELECT order_id, status, price_snapshot_points, payment_deadline_at - created_at AS pay_window
+  FROM hxy.trade_order WHERE order_id = 14;
+ order_id |     status      | price_snapshot_points | pay_window 
+----------+-----------------+-----------------------+------------
+       14 | PENDING_PAYMENT |                   110 | 00:05:00
+
+SELECT status FROM hxy.listing WHERE listing_id = 23;
+      status      
+------------------
+ PAYMENT_RESERVED
+
+SELECT hxy.pay_order(14, 2) AS payment_transfer_id;
+ payment_transfer_id 
+---------------------
+                  30
+
+SELECT hxy.mark_order_delivered(14, 7);
+ mark_order_delivered 
+----------------------
+                   14
+
+SELECT hxy.complete_order(14, 'BUYER_CONFIRMED', 2);
+ complete_order 
+----------------
+             14
+
+SELECT order_id, status, completion_method, paid_at IS NOT NULL AS paid, delivered_at IS NOT NULL AS delivered
+  FROM hxy.v_order_details WHERE order_id = 14;
+ order_id |  status   | completion_method | paid | delivered 
+----------+-----------+-------------------+------+-----------
+       14 | COMPLETED | BUYER_CONFIRMED   | t    | t
+
+SELECT t.event_type, a.owner_type, a.user_id, b.delta_points
+  FROM hxy.point_transfer t JOIN hxy.balance_ledger b USING (transfer_id) JOIN hxy.point_account a USING (account_id)
+ WHERE t.order_id = 14 ORDER BY b.ledger_id;
+ event_type |   owner_type    | user_id | delta_points 
+------------+-----------------+---------+--------------
+ PAYMENT    | USER            |       2 |         -110
+ PAYMENT    | PLATFORM_ESCROW |         |          110
+ SETTLEMENT | PLATFORM_ESCROW |         |         -110
+ SETTLEMENT | USER            |       7 |          110
+
+SELECT user_id, display_name, spendable_points, buyer_reward_points, seller_reputation, completed_sales
+  FROM hxy.v_user_account_summary WHERE user_id IN (2, 7);
+ user_id | display_name | spendable_points | buyer_reward_points | seller_reputation | completed_sales 
+---------+--------------+------------------+---------------------+-------------------+-----------------
+       2 | 林同学       |              530 |                   4 |                82 |               2
+       7 | 演示同学A    |              610 |                   0 |                81 |               1
+
+SELECT hxy.complete_order(14, 'BUYER_CONFIRMED', 2);
+psql:docs/sql_demo.sql:67: ERROR:  订单 14 或商品状态不允许结算
+CONTEXT:  PL/pgSQL function hxy.complete_order(bigint,text,bigint) line 27 at RAISE
+SELECT hxy.place_order((SELECT listing_id FROM hxy.listing WHERE title = 'iPad 第九代 64G 深空灰'), 6);
+ place_order 
+-------------
+          15
+
+SELECT hxy.pay_order(currval(pg_get_serial_sequence('hxy.trade_order', 'order_id')), 6);
+psql:docs/sql_demo.sql:69: ERROR:  积分不足：余额 485，需要 1450
+CONTEXT:  PL/pgSQL function hxy.pay_order(bigint,bigint) line 48 at RAISE
+UPDATE hxy.balance_ledger SET delta_points = 0;
+psql:docs/sql_demo.sql:70: ERROR:  已记账的 balance_ledger 记录不可修改或删除
+CONTEXT:  PL/pgSQL function hxy.trg_reject_accounting_rewrite() line 3 at RAISE
+UPDATE hxy.trade_order SET status = 'COMPLETED' WHERE order_id = (SELECT max(order_id) FROM hxy.trade_order);
+psql:docs/sql_demo.sql:71: ERROR:  订单 15 不允许从 PENDING_PAYMENT 变为 COMPLETED
+CONTEXT:  PL/pgSQL function hxy.trg_order_state_machine() line 20 at RAISE
+DELETE FROM hxy.listing WHERE listing_id = 23;
+psql:docs/sql_demo.sql:72: ERROR:  update or delete on table "listing" violates foreign key constraint "trade_order_listing_id_fkey" on table "trade_order"
+DETAIL:  Key (listing_id)=(23) is still referenced from table "trade_order".
+SELECT r.review_id AS rid, r.order_id AS roid FROM hxy.v_open_reviews r ORDER BY review_id LIMIT 1 
+SELECT review_id, reason, listing_title, buyer_name, seller_name, price_snapshot_points FROM hxy.v_open_reviews;
+ review_id |        reason        |       listing_title        | buyer_name | seller_name | price_snapshot_points 
+-----------+----------------------+----------------------------+------------+-------------+-----------------------
+         1 | BUYER_CANCEL_REQUEST | 数据结构（C 语言版）严蔚敏 | 周同学     | 赵同学      |                    15
+
+SELECT hxy.resolve_order_review(1, 1, 'CANCEL', FALSE);
+ resolve_order_review 
+----------------------
+                   13
+
+SELECT o.status, o.cancel_reason, l.status AS listing_status
+  FROM hxy.trade_order o JOIN hxy.listing l USING (listing_id) WHERE o.order_id = 13;
+  status  |    cancel_reason     | listing_status 
+----------+----------------------+----------------
+ CANCELED | BUYER_CANCEL_REQUEST | RELIST_BUFFER
+
+SELECT t.event_type, b.delta_points, a.owner_type FROM hxy.point_transfer t
+  JOIN hxy.balance_ledger b USING (transfer_id) JOIN hxy.point_account a USING (account_id)
+ WHERE t.order_id = 13 ORDER BY b.ledger_id;
+ event_type | delta_points |   owner_type    
+------------+--------------+-----------------
+ PAYMENT    |          -15 | USER
+ PAYMENT    |           15 | PLATFORM_ESCROW
+ REFUND     |          -15 | PLATFORM_ESCROW
+ REFUND     |           15 | USER
+
+SELECT * FROM hxy.run_scheduled_tasks();
+ expired_orders | auto_completed | late_reviews | relisted 
+----------------+----------------+--------------+----------
+              0 |              0 |            0 |        0
+
+SELECT * FROM hxy.v_platform_stats;
+ user_count | on_sale_count | completed_orders | completed_volume | escrow_balance | issued_points | open_reviews | balance_sum | mismatched_accounts 
+------------+---------------+------------------+------------------+----------------+---------------+--------------+-------------+---------------------
+          6 |             8 |               11 |              625 |            230 |          4200 |            0 |           0 |                   0
+
+EXPLAIN SELECT * FROM hxy.trade_order WHERE buyer_id = 2 ORDER BY order_id DESC;
+                                        QUERY PLAN                                         
+-------------------------------------------------------------------------------------------
+ Index Scan using trade_order_buyer_idx on trade_order  (cost=0.15..8.17 rows=1 width=282)
+   Index Cond: (buyer_id = 2)
+
+EXPLAIN SELECT order_id FROM hxy.trade_order WHERE status = 'PENDING_PAYMENT' AND payment_deadline_at <= now();
+                                          QUERY PLAN                                           
+-----------------------------------------------------------------------------------------------
+ Index Scan using trade_order_payment_due_idx on trade_order  (cost=0.15..8.17 rows=1 width=8)
+   Index Cond: (payment_deadline_at <= now())
+

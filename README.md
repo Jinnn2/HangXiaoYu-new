@@ -1,44 +1,98 @@
-# 季鼎凯交易模块：中期交接
+# 航小鱼 · 校园二手交易与智能估价平台
 
-版本：2026-11-24。用途：组内整合、中期检查、前端与后端接口讨论。
+《数据库系统原理》大作业。PostgreSQL + FastAPI + React。
 
-## 当前实现边界
+**所有数据库操作均为原生 SQL**：建表、约束、索引、触发器、存储过程、视图都是手写 SQL 脚本；后端只用 psycopg 驱动执行手写的 SQL 字符串（参数绑定），不使用任何 ORM。前端只调用 HTTP 接口。
 
-本包是 PostgreSQL 18 的独立数据库模块，schema 为 `trade_demo`，使用最小 `user_stub` / `listing_stub` 占位表。已有原生 SQL 函数、视图和触发器；尚无已实现的 HTTP API 或前端页面。请先阅读《前后端功能对接说明.md》。购买规则中的未来功能不能直接当成已实现功能。
+| 文档 | 内容 |
+| --- | --- |
+| [docs/系统设计报告.md](docs/系统设计报告.md) | 需求分析、功能设计、数据流图、数据元素表、初步 / 基本 E-R 图、关系模式、范式分析、优化、物理设计 |
+| [docs/系统实现报告.md](docs/系统实现报告.md) | 架构、基本表、触发器与存储过程、SQL 运行结果、前端技术 |
+| [docs/er/](docs/er/) | 陈氏 E-R 图（SVG + PNG，由 `draw_er.py` 生成） |
+| [docs/sql_demo.sql](docs/sql_demo.sql) | 各功能的 SQL 演示脚本与 [运行结果](docs/sql_demo_output.txt) |
+| [购买规则.md](购买规则.md) | 交易业务规则 |
+| [前后端功能对接说明.md](前后端功能对接说明.md) | HTTP 接口清单 |
 
-已验证：建表初始化、付款托管、交付、买家确认与到期完成、核实退款与超时处罚、改价、未付款取消与过期释放、任务批处理入口；流水约束；两连接争抢商品、重复结算、未收到反馈先于自动结算三组竞争场景。
+## 目录
 
-## 安装顺序（仅新建独立演示数据库）
-
-用 pgAdmin 的 Query Tool 连接一个专用新数据库，依次执行以下整份文件。无需重建已有的日常演示库。
-
-1. `交易模块_独立建表草案.sql`
-2. `交易模块_独立初始化与核对.sql`（演示种子数据，仅首次执行）
-3. `交易模块_流水完整性触发器.sql`（仅首次安装）
-4. `交易模块_交付与成交结算函数草案.sql`
-5. `交易模块_异常核实与退款函数草案.sql`
-6. `交易模块_下单取消与到期任务函数草案.sql`
-7. `交易模块_商品改价与价格历史函数草案.sql`
-8. `交易模块_账户与订单查询视图.sql`
-
-`交易模块_付款进入平台托管事务草案.sql` 是演示付款事务模板，需填写其中实际订单号及末尾核对订单号。它尚未封装为带买家身份校验的接口函数；后端接入时应参数化并检查登录买家。旧的“下单待付款事务草案”“待付款超时处理草案”保留作演示源码，新接入优先用函数文件里的入口。
-
-## 重现测试
-
-Windows、PostgreSQL 18 工具安装于 `C:\Program Files\PostgreSQL\18\bin`，Python 3 已安装。进入解压后的目录，在 PowerShell 执行：
-
-```powershell
-.\交易模块_隔离自测.ps1
+```text
+db/         数据库：01_schema … 08_views、09_seed 演示数据、install.sql、run_tests.py、tests/
+backend/    FastAPI 服务器端（app/db.py 是唯一的数据库访问层）
+frontend/   React + Vite + Tailwind 客户端
+docs/       报告、E-R 图、截图、SQL 演示
+legacy/     早期独立交易模块（trade_demo schema，保留作过程记录，仍可独立运行其自测）
 ```
 
-脚本在本目录创建 `.pgtest_run`，临时使用本机 127.0.0.1:55432，以无密码的隔离测试角色运行；端口须空闲。成功后输出 PASS，停止并清理该测试实例。若失败，先阅读错误信息，不要对正式库运行种子或测试脚本。`*_自测.sql`、`*_自测准备.sql`、`*_自测核对.sql` 仅供隔离测试，不安装到小组业务库。初始 500 积分是测试数据，未记录初始化发放流水。
+## 本地运行（Windows）
 
-## 与小组整合
+需要：PostgreSQL 18（16 以上即可）、Python 3.11+、Node.js 20+。下面的命令在 PowerShell 中、仓库根目录执行。
 
-- 先统一正式用户和商品表字段及外键，再修改 schema 与 SQL 引用；当前安装流程不直接迁移或覆盖组员表。
-- 用户身份应来自后端登录会话；管理员角色校验尚未实现。当前核实函数只验证管理员编号存在。
-- 商品卖家归属及订单价格快照在交易后须保持固定；后端应限制直接修改账户、历史与状态。
-- 到期入口需要后端定时调度；重新上架缓冲后的卖家操作、禁止再售标记、自动上架尚未实现。
-- 评分参数为个人方案：初始80、成交+1、核实超时-10，待组内统一。
+**1. 建库并安装**（会提示输入 postgres 密码）
 
-文件保留“草案”名称，以提示正式表尚未对接；不代表未经过独立测试。本包不含个人学习进度、初学者教程、课程课件或安装过程记录。设计文档用于解释表结构和业务规则。
+```powershell
+$env:Path += ";C:\Program Files\PostgreSQL\18\bin"
+createdb -U postgres hangxiaoyu
+psql -U postgres -d hangxiaoyu -v ON_ERROR_STOP=1 -f db/install.sql
+psql -U postgres -d hangxiaoyu -v ON_ERROR_STOP=1 -f db/09_seed.sql
+```
+
+使用 pgAdmin 时：在 Query Tool 中按顺序打开并执行 `db/01_schema.sql` 到 `db/08_views.sql`，再执行 `db/09_seed.sql`。
+
+**2. 后端**
+
+```powershell
+cd backend
+python -m venv .venv
+.venv\Scripts\pip install -r requirements.txt
+copy .env.example .env      # 然后编辑 .env，填数据库密码
+.venv\Scripts\uvicorn app.main:app --reload --port 8000
+```
+
+**3. 前端**（另开一个终端）
+
+```powershell
+cd frontend
+npm install
+npm run dev                 # 打开 http://localhost:5173
+```
+
+演示或部署时也可以 `npm run build`，之后只需启动后端，访问 http://localhost:8000 即可（后端会一并提供前端页面）。
+
+**演示账号**（密码均为 `123456`）：买家 `23370001`（林同学）、卖家 `23370002`（王同学）、管理员 `admin`。演示数据里已有在售商品、历史成交、待交付 / 待收货 / 待核实的订单。
+
+课堂演示自动确认收货时，可在 `backend/.env` 设置 `HXY_AUTO_COMPLETE_SECONDS=120`，卖家交付 2 分钟后自动完成（规则为 24 小时）。
+
+## 测试
+
+```powershell
+python db/run_tests.py
+```
+
+在临时目录启动一个隔离的 PostgreSQL 实例（端口 55432），安装全部脚本，运行 `db/tests/` 下的 SQL 测试、双会话并发测试和演示数据对账，结束后自动删除，不会碰任何已有数据库。只需要 PostgreSQL 自带的命令行工具；如果自动找不到，加 `--pg-bin "C:\Program Files\PostgreSQL\18\bin"`。
+
+```powershell
+cd backend
+$env:HXY_TEST_ADMIN_URL = "postgresql://postgres:密码@127.0.0.1:5432/postgres"
+.venv\Scripts\python -m pytest tests
+```
+
+API 测试会新建（并覆盖）一个名为 `hxy_api_test` 的数据库。
+
+## 当前状态
+
+按协作说明的要求区分三种状态：
+
+| 功能 | 数据库（SQL 已验证） | 后端接口已接入 | 前端已展示 |
+| --- | :-: | :-: | :-: |
+| 注册登录、个人资料、改密码 | ✓ | ✓ | ✓ |
+| 商品发布、修改、改价与价格历史、上下架、删除 | ✓ | ✓ | ✓ |
+| 搜索、分类、排序、收藏 | ✓ | ✓ | ✓ |
+| 智能估价、估价记录、分类行情 | ✓ | ✓ | ✓ |
+| 下单、付款托管、取消、交付、确认收货 | ✓ | ✓ | ✓ |
+| 申请取消、未收到反馈、管理员核实与退款、超时处罚 | ✓ | ✓ | ✓ |
+| 定时任务（付款超时、自动完成、交付超时、缓冲期满上架） | ✓ | ✓ 每 30 秒调度 | 管理后台可手动触发 |
+| 封禁用户、禁止再售、新增分类、平台对账 | ✓ | ✓ | ✓ |
+
+尚未实现：商品图片上传（目前填图片链接，不填则显示分类封面）、站内消息通知、物流信息、成交后售后申诉。
+
+本仓库尚未选择开源许可证，仅用于组内课程协作。

@@ -2,7 +2,7 @@
 -- 适用：PostgreSQL 16 及以上（开发环境 18）。在一个新建的专用数据库中首次执行。
 -- 全部表放在 hxy schema 中；不包含 DROP，不会覆盖已有对象。
 --
--- 实体（10 张基本表 + 1 张联系表）：
+-- 共 12 张表：11 个实体 + 1 张多对多联系表（收藏）
 --   app_user 用户          category 商品分类       listing 商品
 --   valuation 估价记录     trade_order 订单        point_account 积分账户
 --   point_transfer 积分转移 balance_ledger 积分流水明细

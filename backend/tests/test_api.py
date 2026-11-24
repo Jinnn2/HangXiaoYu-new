@@ -109,3 +109,15 @@ def test_favorites_and_valuations(lin):
     assert v["suggested_price_points"] == est["suggested_price_points"]
     assert lin.delete(f"/api/valuations/{v['valuation_id']}").status_code == 200
     assert lin.delete(f"/api/valuations/{v['valuation_id']}").status_code == 404
+
+
+def test_dashboards(lin, admin):
+    d = lin.get("/api/me/dashboard").json()
+    assert d["summary"]["display_name"] == "林同学"
+    assert len(d["flow"]) == 30 and d["flow"][-1]["closing_balance"] == d["summary"]["spendable_points"]
+    assert d["stats"]["bought_count"] >= 1
+    assert all(t["action"] in ("PAY", "CONFIRM", "DELIVER") for t in d["todos"])
+    a = admin.get("/api/admin/dashboard").json()
+    assert len(a["daily"]) == 14 and sum(x["completed_orders"] for x in a["daily"]) >= 1
+    assert a["top_sellers"] and a["categories"]
+    assert lin.get("/api/admin/dashboard").status_code == 403

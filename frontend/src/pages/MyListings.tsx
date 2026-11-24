@@ -37,7 +37,7 @@ export default function MyListings() {
           {shown.map((l) => (
             <div key={l.listing_id} className="flex items-center gap-4 p-4">
               <Link to={`/listings/${l.listing_id}`} className="shrink-0">
-                <Cover title={l.title} category={l.category_name} imageUrl={l.image_url} className="size-16 rounded-xl sm:size-20" />
+                <Cover title={l.title} category={l.category_name} imageUrl={l.image_url} className="size-16 rounded-xl sm:size-20" small />
               </Link>
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">

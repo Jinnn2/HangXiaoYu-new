@@ -15,6 +15,7 @@ import FavoritesPage from "./pages/Favorites";
 import ValuationPage from "./pages/Valuation";
 import LoginPage from "./pages/Login";
 import AdminPage from "./pages/Admin";
+import DashboardPage from "./pages/Dashboard";
 import SellerPage from "./pages/Seller";
 
 function Logo() {
@@ -65,6 +66,7 @@ function UserMenu() {
             <p className="text-xs text-slate-400">学号 {me.student_no}</p>
           </div>
           <div className="my-1 h-px bg-slate-100" />
+          <Link to="/dashboard" className={item}><LayoutDashboard className="size-4" />我的看板</Link>
           <Link to="/account" className={item}><Wallet className="size-4" />我的账户</Link>
           <Link to="/favorites" className={item}><Heart className="size-4" />我的收藏</Link>
           <Link to={`/users/${me.user_id}`} className={item}><User className="size-4" />我的主页</Link>
@@ -106,6 +108,7 @@ function Layout() {
         <div className="mx-auto flex h-16 max-w-7xl items-center gap-4 px-4 sm:px-6">
           <Logo />
           <nav className="ml-4 hidden items-center gap-1 lg:flex">
+            {me && <NavLink to="/dashboard" className={navCls}>看板</NavLink>}
             {NAV.map((n) => <NavLink key={n.to} to={n.to} end={n.end} className={navCls}>{n.label}</NavLink>)}
             {me?.role === "ADMIN" && <NavLink to="/admin" className={navCls}>管理后台</NavLink>}
           </nav>
@@ -127,7 +130,7 @@ function Layout() {
 
       {/* 手机端底部导航 */}
       <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-slate-200 bg-white/90 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl md:hidden">
-        {[NAV[0], NAV[1], { to: "/sell", label: "发布", icon: Plus }, NAV[2], { to: me?.role === "ADMIN" ? "/admin" : "/account", label: me?.role === "ADMIN" ? "后台" : "我的", icon: me?.role === "ADMIN" ? LayoutDashboard : User }].map((n) => (
+        {[NAV[0], NAV[1], { to: "/sell", label: "发布", icon: Plus }, NAV[2], { to: me?.role === "ADMIN" ? "/admin" : "/dashboard", label: me?.role === "ADMIN" ? "后台" : "我的", icon: me?.role === "ADMIN" ? LayoutDashboard : User }].map((n) => (
           <NavLink key={n.to} to={n.to} end={n.to === "/"} className={({ isActive }) => `flex flex-col items-center gap-0.5 py-2 text-[11px] ${isActive ? "text-brand-600" : "text-slate-500"}`}>
             {n.to === "/sell"
               ? <span className="-mt-5 grid size-11 place-items-center rounded-2xl bg-gradient-to-br from-brand-500 to-indigo-500 text-white shadow-lg shadow-brand-500/30"><Plus className="size-5" /></span>
@@ -154,6 +157,7 @@ export default function App() {
         <Route path="my/listings" element={<RequireAuth><MyListings /></RequireAuth>} />
         <Route path="orders" element={<RequireAuth><OrdersPage /></RequireAuth>} />
         <Route path="orders/:id" element={<RequireAuth><OrderDetailPage /></RequireAuth>} />
+        <Route path="dashboard" element={<RequireAuth><DashboardPage /></RequireAuth>} />
         <Route path="account" element={<RequireAuth><AccountPage /></RequireAuth>} />
         <Route path="favorites" element={<RequireAuth><FavoritesPage /></RequireAuth>} />
         <Route path="admin" element={<RequireAuth admin><AdminPage /></RequireAuth>} />

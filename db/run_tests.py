@@ -193,7 +193,7 @@ def main() -> None:
         c.sql("postgres", "CREATE DATABASE t_seed")
         for f in INSTALL_FILES + ["09_seed.sql"]:
             c.run_file("t_seed", DB_DIR / f)
-        stats = c.sql("t_seed", "SELECT balance_sum = 0 AND mismatched_accounts = 0 AND completed_orders = 10 "
+        stats = c.sql("t_seed", "SELECT balance_sum = 0 AND mismatched_accounts = 0 AND completed_orders = 18 "
                                 "FROM hxy.v_platform_stats")
         if stats != "t":
             raise RuntimeError("演示数据对账失败")

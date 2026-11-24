@@ -115,3 +115,86 @@ SELECT (SELECT COUNT(*) FROM hxy.app_user WHERE role = 'USER') AS user_count,
        (SELECT COUNT(*) FROM hxy.point_account a
          WHERE a.balance_points <> COALESCE((SELECT SUM(delta_points) FROM hxy.balance_ledger b
                                               WHERE b.account_id = a.account_id), 0)) AS mismatched_accounts;
+
+-- =====================================================================
+-- 看板统计（只读函数）：个人看板与管理后台看板使用
+-- =====================================================================
+
+-- 某用户最近 p_days 天每天的积分收入、支出，以及当天结束时的余额。
+-- 余额由"当前余额 − 当天之后的全部变动"倒推，因此与流水严格一致。
+CREATE OR REPLACE FUNCTION hxy.user_daily_flow(p_user_id BIGINT, p_days INTEGER DEFAULT 30)
+RETURNS TABLE (day DATE, income BIGINT, spend BIGINT, closing_balance BIGINT)
+LANGUAGE sql STABLE AS $$
+    WITH acct AS (
+        SELECT account_id, balance_points FROM hxy.point_account
+         WHERE owner_type = 'USER' AND user_id = p_user_id
+    ), moves AS (
+        SELECT t.occurred_at::date AS d, b.delta_points
+          FROM hxy.balance_ledger b
+          JOIN hxy.point_transfer t USING (transfer_id)
+          JOIN acct a ON a.account_id = b.account_id
+    ), days AS (
+        SELECT generate_series(current_date - (p_days - 1), current_date, INTERVAL '1 day')::date AS d
+    )
+    SELECT days.d,
+           COALESCE((SELECT SUM(delta_points) FROM moves WHERE moves.d = days.d AND delta_points > 0), 0)::BIGINT,
+           COALESCE((SELECT -SUM(delta_points) FROM moves WHERE moves.d = days.d AND delta_points < 0), 0)::BIGINT,
+           ((SELECT balance_points FROM acct)
+             - COALESCE((SELECT SUM(delta_points) FROM moves WHERE moves.d > days.d), 0))::BIGINT
+      FROM days ORDER BY days.d;
+$$;
+
+-- 某用户的交易统计。
+CREATE OR REPLACE FUNCTION hxy.user_trade_stats(p_user_id BIGINT)
+RETURNS TABLE (bought_count BIGINT, bought_points BIGINT, sold_count BIGINT, sold_points BIGINT,
+               active_buying BIGINT, active_selling BIGINT)
+LANGUAGE sql STABLE AS $$
+    SELECT COUNT(*) FILTER (WHERE buyer_id = p_user_id AND status = 'COMPLETED'),
+           COALESCE(SUM(price_snapshot_points) FILTER (WHERE buyer_id = p_user_id AND status = 'COMPLETED'), 0)::BIGINT,
+           COUNT(*) FILTER (WHERE seller_id = p_user_id AND status = 'COMPLETED'),
+           COALESCE(SUM(price_snapshot_points) FILTER (WHERE seller_id = p_user_id AND status = 'COMPLETED'), 0)::BIGINT,
+           COUNT(*) FILTER (WHERE buyer_id = p_user_id
+                              AND status IN ('PENDING_PAYMENT', 'PENDING_DELIVERY', 'PENDING_RECEIPT', 'UNDER_REVIEW')),
+           COUNT(*) FILTER (WHERE seller_id = p_user_id
+                              AND status IN ('PENDING_PAYMENT', 'PENDING_DELIVERY', 'PENDING_RECEIPT', 'UNDER_REVIEW'))
+      FROM hxy.v_order_details
+     WHERE buyer_id = p_user_id OR seller_id = p_user_id;
+$$;
+
+-- 某用户需要处理的订单（待办）。
+CREATE OR REPLACE VIEW hxy.v_order_todo AS
+SELECT d.*, 'buyer'::TEXT AS actor_role, d.buyer_id AS actor_id,
+       CASE d.status WHEN 'PENDING_PAYMENT' THEN 'PAY' ELSE 'CONFIRM' END AS action,
+       CASE d.status WHEN 'PENDING_PAYMENT' THEN d.payment_deadline_at ELSE d.auto_complete_at END AS due_at
+  FROM hxy.v_order_details d
+ WHERE (d.status = 'PENDING_PAYMENT' AND d.payment_deadline_at > clock_timestamp())
+    OR d.status = 'PENDING_RECEIPT'
+UNION ALL
+SELECT d.*, 'seller', d.seller_id, 'DELIVER', d.paid_at + INTERVAL '48 hours'
+  FROM hxy.v_order_details d
+ WHERE d.status = 'PENDING_DELIVERY';
+
+-- 平台最近 p_days 天每日活动：新用户、新商品、新订单、成交笔数与成交额。
+CREATE OR REPLACE FUNCTION hxy.platform_daily_activity(p_days INTEGER DEFAULT 14)
+RETURNS TABLE (day DATE, new_users BIGINT, new_listings BIGINT, new_orders BIGINT,
+               completed_orders BIGINT, completed_volume BIGINT)
+LANGUAGE sql STABLE AS $$
+    SELECT d::date,
+           (SELECT COUNT(*) FROM hxy.app_user u WHERE u.created_at::date = d::date AND u.role = 'USER'),
+           (SELECT COUNT(*) FROM hxy.listing l WHERE l.created_at::date = d::date),
+           (SELECT COUNT(*) FROM hxy.trade_order o WHERE o.created_at::date = d::date),
+           (SELECT COUNT(*) FROM hxy.trade_order o WHERE o.status = 'COMPLETED' AND o.completed_at::date = d::date),
+           (SELECT COALESCE(SUM(price_snapshot_points), 0) FROM hxy.trade_order o
+             WHERE o.status = 'COMPLETED' AND o.completed_at::date = d::date)::BIGINT
+      FROM generate_series(current_date - (p_days - 1), current_date, INTERVAL '1 day') AS d
+     ORDER BY 1;
+$$;
+
+-- 卖家排行：按累计成交额。
+CREATE OR REPLACE VIEW hxy.v_top_sellers AS
+SELECT d.seller_id, d.seller_name, r.reputation,
+       COUNT(*) AS deals, SUM(d.price_snapshot_points) AS volume
+  FROM hxy.v_order_details d
+  JOIN hxy.v_seller_reputation r ON r.user_id = d.seller_id
+ WHERE d.status = 'COMPLETED'
+ GROUP BY d.seller_id, d.seller_name, r.reputation;

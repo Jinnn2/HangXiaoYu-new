@@ -85,7 +85,7 @@ export default function OrderDetailPage() {
       <div className="grid gap-5 md:grid-cols-[1.3fr_1fr]">
         <div className="card p-5">
           <Link to={`/listings/${o.listing_id}`} className="flex gap-4">
-            <Cover title={o.listing_title} category={o.category_name} imageUrl={o.image_url} className="size-24 shrink-0 rounded-xl" />
+            <Cover title={o.listing_title} category={o.category_name} imageUrl={o.image_url} className="size-24 shrink-0 rounded-xl" small />
             <div className="min-w-0">
               <p className="font-semibold text-slate-800 hover:text-brand-700">{o.listing_title}</p>
               <div className="mt-1"><OrderStatusBadge status={o.status} /></div>

@@ -19,7 +19,7 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from . import config
 from .db import BusinessError, fetch_one, fetch_value, pool, to_business_error
-from .routers import admin, auth, listings, orders, valuations
+from .routers import admin, auth, dashboard, listings, orders, valuations
 
 log = logging.getLogger("hangxiaoyu")
 
@@ -72,7 +72,7 @@ async def validation_error_handler(_: Request, exc: RequestValidationError):
     return JSONResponse({"detail": f"参数 {field} 不正确：{first.get('msg', '')}"}, status_code=422)
 
 
-for r in (auth.router, listings.router, orders.router, valuations.router, admin.router):
+for r in (auth.router, listings.router, orders.router, valuations.router, admin.router, dashboard.router):
     app.include_router(r)
 
 

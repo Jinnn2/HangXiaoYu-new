@@ -121,7 +121,7 @@ const CATEGORY_STYLE: Record<string, { icon: typeof Laptop; from: string; to: st
   乐器文娱: { icon: Guitar, from: "from-violet-300", to: "to-purple-600" },
 };
 
-export function Cover({ title, category, imageUrl, className = "" }: { title: string; category: string; imageUrl?: string | null; className?: string }) {
+export function Cover({ title, category, imageUrl, className = "", small = false }: { title: string; category: string; imageUrl?: string | null; className?: string; small?: boolean }) {
   const [broken, setBroken] = useState(false);
   const style = CATEGORY_STYLE[category] ?? { icon: Package, from: "from-slate-300", to: "to-slate-500" };
   const Icon = style.icon;
@@ -132,9 +132,9 @@ export function Cover({ title, category, imageUrl, className = "" }: { title: st
     <div className={`relative overflow-hidden bg-gradient-to-br ${style.from} ${style.to} ${className}`}>
       <div className="absolute -right-6 -top-6 size-28 rounded-full bg-white/15" />
       <div className="absolute -bottom-10 -left-4 size-32 rounded-full bg-black/5" />
-      <div className="relative flex h-full flex-col items-center justify-center gap-2 p-4 text-white">
-        <Icon className="size-10 drop-shadow" strokeWidth={1.6} />
-        <span className="line-clamp-1 max-w-full text-center text-xs font-medium opacity-90">{title}</span>
+      <div className={`relative flex h-full flex-col items-center justify-center gap-2 text-white ${small ? "p-1" : "p-4"}`}>
+        <Icon className={small ? "size-5" : "size-10 drop-shadow"} strokeWidth={small ? 2 : 1.6} />
+        {!small && <span className="line-clamp-1 max-w-full text-center text-xs font-medium opacity-90">{title}</span>}
       </div>
     </div>
   );

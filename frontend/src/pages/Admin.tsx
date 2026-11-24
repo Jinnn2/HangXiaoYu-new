@@ -1,15 +1,15 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router";
-import { Ban, CheckCircle2, Coins, FileWarning, Package, Play, Plus, Scale, ShieldCheck, Users } from "lucide-react";
+import { Ban, CheckCircle2, FileWarning, LayoutDashboard, Package, Play, Plus, Users } from "lucide-react";
 import { get, post, type Category, type Listing } from "../api";
-import { Empty, ListingStatusBadge, Points, REVIEW_REASON, SectionTitle, StatCard, fmtTime, useAction } from "../ui";
+import AdminOverview from "./AdminOverview";
+import { Empty, ListingStatusBadge, Points, REVIEW_REASON, SectionTitle, fmtTime, useAction } from "../ui";
 
-interface Stats { user_count: number; on_sale_count: number; completed_orders: number; completed_volume: number; escrow_balance: number; issued_points: number; open_reviews: number; balance_sum: number; mismatched_accounts: number }
 interface Review { review_id: number; reason: string; previous_status: string; opened_at: string; order_id: number; listing_title: string; price_snapshot_points: number; buyer_name: string; seller_name: string; paid_at: string | null; delivered_at: string | null; delivery_late_evidence: boolean }
 interface UserRow { user_id: number; student_no: string; display_name: string; role: string; status: string; created_at: string; spendable_points: number; seller_reputation: number; completed_sales: number }
 
 const TABS = [
-  { key: "overview", label: "概览", icon: Scale },
+  { key: "overview", label: "看板", icon: LayoutDashboard },
   { key: "reviews", label: "异常核实", icon: FileWarning },
   { key: "users", label: "用户", icon: Users },
   { key: "listings", label: "商品", icon: Package },
@@ -50,24 +50,22 @@ function ReviewCard({ r, onDone }: { r: Review; onDone: () => void }) {
 
 export default function AdminPage() {
   const [tab, setTab] = useState("overview");
-  const [stats, setStats] = useState<Stats | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [users, setUsers] = useState<UserRow[]>([]);
   const [listings, setListings] = useState<Listing[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [newCat, setNewCat] = useState("");
   const { busy, run } = useAction();
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const load = useCallback(() => {
-    get<Stats>("/admin/stats").then(setStats);
+    setRefreshKey((k) => k + 1);
     get<Review[]>("/admin/reviews").then(setReviews);
     get<UserRow[]>("/admin/users").then(setUsers);
     get<Listing[]>("/admin/listings").then(setListings);
     get<Category[]>("/categories").then(setCategories);
   }, []);
   useEffect(() => { load(); }, [load]);
-
-  const balanced = stats && stats.balance_sum === 0 && stats.mismatched_accounts === 0;
 
   return (
     <div className="animate-fade-up">
@@ -87,32 +85,7 @@ export default function AdminPage() {
         ))}
       </div>
 
-      {tab === "overview" && stats && (
-        <div className="space-y-6">
-          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-            <StatCard label="注册用户" value={stats.user_count} icon={<Users className="size-4" />} />
-            <StatCard label="在售商品" value={stats.on_sale_count} tone="emerald" icon={<Package className="size-4" />} />
-            <StatCard label="累计成交" value={stats.completed_orders} hint={`成交额 ${stats.completed_volume.toLocaleString()} 积分`} tone="violet" icon={<CheckCircle2 className="size-4" />} />
-            <StatCard label="待处理核实" value={stats.open_reviews} tone="rose" icon={<FileWarning className="size-4" />} />
-          </div>
-          <div className="grid gap-4 lg:grid-cols-2">
-            <div className="card p-6">
-              <p className="flex items-center gap-2 font-semibold text-slate-900"><Coins className="size-4 text-amber-500" />积分总账</p>
-              <dl className="mt-4 space-y-2.5 text-sm">
-                <div className="flex justify-between"><dt className="text-slate-500">已发行积分（发行账户 −余额）</dt><dd className="font-semibold tabular-nums">{stats.issued_points.toLocaleString()}</dd></div>
-                <div className="flex justify-between"><dt className="text-slate-500">平台托管中</dt><dd className="font-semibold tabular-nums">{stats.escrow_balance.toLocaleString()}</dd></div>
-                <div className="flex justify-between"><dt className="text-slate-500">全部账户余额之和</dt><dd className="font-semibold tabular-nums">{stats.balance_sum}</dd></div>
-                <div className="flex justify-between"><dt className="text-slate-500">余额与流水不一致的账户</dt><dd className="font-semibold tabular-nums">{stats.mismatched_accounts}</dd></div>
-              </dl>
-            </div>
-            <div className={`card flex flex-col justify-center p-6 ${balanced ? "bg-gradient-to-br from-emerald-50 to-white" : "bg-rose-50"}`}>
-              <ShieldCheck className={`size-10 ${balanced ? "text-emerald-500" : "text-rose-500"}`} />
-              <p className="mt-3 text-lg font-bold text-slate-900">{balanced ? "账目平衡" : "账目异常，请检查"}</p>
-              <p className="mt-1 text-sm text-slate-500">复式记账：每次转移恰好一出一进、合计为 0，因此所有账户余额之和恒为 0，且每个账户余额都等于其流水之和。</p>
-            </div>
-          </div>
-        </div>
-      )}
+      {tab === "overview" && <AdminOverview onGoReviews={() => setTab("reviews")} refreshKey={refreshKey} />}
 
       {tab === "reviews" && (
         reviews.length === 0 ? <Empty icon={<CheckCircle2 className="size-6" />} title="没有待处理的核实" /> : (

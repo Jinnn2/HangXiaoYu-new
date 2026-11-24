@@ -41,7 +41,7 @@ export default function OrdersPage() {
         <div className="space-y-3">
           {orders.map((o) => (
             <Link key={o.order_id} to={`/orders/${o.order_id}`} className="card flex items-center gap-4 p-4 transition hover:shadow-lift">
-              <Cover title={o.listing_title} category={o.category_name} imageUrl={o.image_url} className="size-16 shrink-0 rounded-xl sm:size-20" />
+              <Cover title={o.listing_title} category={o.category_name} imageUrl={o.image_url} className="size-16 shrink-0 rounded-xl sm:size-20" small />
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="truncate font-semibold text-slate-800">{o.listing_title}</span>
